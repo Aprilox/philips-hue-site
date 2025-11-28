@@ -1,7 +1,16 @@
-import { NextResponse } from 'next/server'
-import https from 'https'
+import { NextResponse } from 'next/server';
+import https from 'https';
+import * as http from 'http';
 
-const customFetch = (url: string, options: any): Promise<any> => {
+// Define the response type for customFetch
+interface CustomFetchResponse {
+  json: () => any;
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  data?: string;
+}
+
+const customFetch = (url: string, options: any): Promise<CustomFetchResponse> => {
   return new Promise((resolve, reject) => {
     const req = https.request(url, { ...options, rejectUnauthorized: false }, (res) => {
       let data = '';
@@ -13,14 +22,19 @@ const customFetch = (url: string, options: any): Promise<any> => {
         if (res.headers['content-type']?.includes('application/json')) {
           try {
             const jsonData = JSON.parse(data);
-            resolve({ json: () => jsonData, status: res.statusCode, headers: res.headers });
+            resolve({ json: () => jsonData, status: res.statusCode ?? 0, headers: res.headers });
           } catch (error) {
             console.error('Error parsing JSON:', error);
             reject(new Error(`Invalid JSON response: ${data}`));
           }
         } else {
           console.error('Unexpected content type:', res.headers['content-type']);
-          resolve({ status: res.statusCode, data, headers: res.headers });
+          resolve({
+            json: () => ({}), // Return empty object for non-JSON responses
+            status: res.statusCode ?? 0,
+            data,
+            headers: res.headers,
+          });
         }
       });
     });
@@ -36,41 +50,41 @@ const customFetch = (url: string, options: any): Promise<any> => {
 };
 
 export async function PUT(request: Request) {
-  console.log('Received PUT request to set-light-color')
-  const { searchParams } = new URL(request.url)
-  const ip = searchParams.get('ip')
-  const username = request.headers.get('hue-application-key')
+  console.log('Received PUT request to set-light-color');
+  const { searchParams } = new URL(request.url);
+  const ip = searchParams.get('ip');
+  const username = request.headers.get('hue-application-key');
 
   if (!ip || !username) {
-    console.error('Missing IP or username')
-    return NextResponse.json({ error: 'IP du bridge ou username non fourni' }, { status: 400 })
+    console.error('Missing IP or username');
+    return NextResponse.json({ error: 'IP du bridge ou username non fourni' }, { status: 400 });
   }
 
   try {
-    const { lightId, color, brightness, on } = await request.json()
-    console.log('Request body:', { lightId, color, brightness, on })
+    const { lightId, color, brightness, on } = await request.json();
+    console.log('Request body:', { lightId, color, brightness, on });
 
-    const url = `https://${ip}/clip/v2/resource/light/${lightId}`
-    let body
+    const url = `https://${ip}/clip/v2/resource/light/${lightId}`;
+    let body;
 
     if (on) {
       body = JSON.stringify({
         on: { on: true },
         dimming: { brightness: Math.min(Math.max(Math.round(brightness), 0), 100) },
-        color: { 
-          xy: { 
+        color: {
+          xy: {
             x: Math.min(Math.max(color.xy.x, 0), 1),
-            y: Math.min(Math.max(color.xy.y, 0), 1)
-          } 
+            y: Math.min(Math.max(color.xy.y, 0), 1),
+          },
         },
-      })
+      });
     } else {
       body = JSON.stringify({
-        on: { on: false }
-      })
+        on: { on: false },
+      });
     }
 
-    console.log('Sending request to Philips Hue bridge:', { url, body })
+    console.log('Sending request to Philips Hue bridge:', { url, body });
 
     const response = await customFetch(url, {
       method: 'PUT',
@@ -79,18 +93,21 @@ export async function PUT(request: Request) {
         'hue-application-key': username,
       },
       body: body,
-    })
+    });
 
-    console.log('Response from Philips Hue bridge:', response)
+    console.log('Response from Philips Hue bridge:', response);
 
     if (response.status >= 400) {
-      throw new Error(`HTTP error! status: ${response.status}, body: ${JSON.stringify(response.json())}`)
+      throw new Error(`HTTP error! status: ${response.status}, body: ${JSON.stringify(response.json())}`);
     }
 
-    return NextResponse.json(response.json())
-  } catch (error) {
-    console.error('Error in set-light-color:', error)
-    return NextResponse.json({ error: 'Erreur lors du changement de couleur', details: error.message }, { status: 500 })
+    return NextResponse.json(response.json());
+  } catch (error: unknown) {
+    console.error('Error in set-light-color:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json(
+      { error: 'Erreur lors du changement de couleur', details: errorMessage },
+      { status: 500 }
+    );
   }
 }
-

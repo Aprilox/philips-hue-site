@@ -1,39 +1,40 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import BridgeSetup from '@/components/BridgeSetup'
-import LampControl from '@/components/LampControl'
-import ConfirmationModal from '@/components/ConfirmationModal'
-import { getBridgeInfo, setBridgeInfo } from '@/lib/bridgeUtils'
+import { useState, useEffect } from 'react';
+import BridgeSetup from '@/components/BridgeSetup';
+import LampControl from '@/components/LampControl';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import { getBridgeInfo, setBridgeInfo } from '@/lib/bridgeUtils';
+import { HueBridge } from '@/types/hue'; // Import HueBridge from src/types/hue.ts
 
 export default function Home() {
-  const [bridgeInfo, setBridgeInfoState] = useState(null)
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [bridgeInfo, setBridgeInfoState] = useState<HueBridge | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
-    const storedInfo = getBridgeInfo()
+    const storedInfo = getBridgeInfo();
     if (storedInfo) {
-      setBridgeInfoState(storedInfo)
+      setBridgeInfoState(storedInfo);
     }
-  }, [])
+  }, []);
 
   const handleBridgeConnected = () => {
-    setBridgeInfoState(getBridgeInfo())
-  }
+    setBridgeInfoState(getBridgeInfo());
+  };
 
   const handleDisconnect = () => {
-    setShowConfirmation(true)
-  }
+    setShowConfirmation(true);
+  };
 
   const handleConfirmDisconnect = () => {
-    setBridgeInfo(null)
-    setBridgeInfoState(null)
-    setShowConfirmation(false)
-  }
+    setBridgeInfo(null);
+    setBridgeInfoState(null);
+    setShowConfirmation(false);
+  };
 
   const handleCancelDisconnect = () => {
-    setShowConfirmation(false)
-  }
+    setShowConfirmation(false);
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-8">
@@ -42,7 +43,7 @@ export default function Home() {
         <div className="bg-gray-800 rounded-lg shadow-lg p-6">
           {!bridgeInfo ? (
             <BridgeSetup onConnected={handleBridgeConnected} />
-          ) : (
+          ) : bridgeInfo.username && bridgeInfo.clientkey ? (
             <>
               <LampControl bridgeInfo={bridgeInfo} />
               <button
@@ -52,6 +53,8 @@ export default function Home() {
                 Déconnecter le bridge
               </button>
             </>
+          ) : (
+            <p>Bridge info incomplete. Please reconnect.</p>
           )}
         </div>
       </div>
@@ -62,5 +65,5 @@ export default function Home() {
         />
       )}
     </main>
-  )
+  );
 }

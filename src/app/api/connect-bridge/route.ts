@@ -1,7 +1,12 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server';
 import https from 'https';
 
-const customFetch = (url: string, options: any) => {
+// Define the response type for customFetch
+interface CustomFetchResponse {
+  json: () => Promise<any>;
+}
+
+const customFetch = (url: string, options: any): Promise<CustomFetchResponse> => {
   return new Promise((resolve, reject) => {
     const req = https.request(url, { ...options, rejectUnauthorized: false }, (res) => {
       let data = '';
@@ -9,7 +14,9 @@ const customFetch = (url: string, options: any) => {
         data += chunk;
       });
       res.on('end', () => {
-        resolve({ json: () => JSON.parse(data) });
+        resolve({
+          json: () => JSON.parse(data),
+        });
       });
     });
     req.on('error', reject);
@@ -21,11 +28,11 @@ const customFetch = (url: string, options: any) => {
 };
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const ip = searchParams.get('ip')
+  const { searchParams } = new URL(request.url);
+  const ip = searchParams.get('ip');
 
   if (!ip) {
-    return NextResponse.json({ error: 'IP du bridge non fournie' }, { status: 400 })
+    return NextResponse.json({ error: 'IP du bridge non fournie' }, { status: 400 });
   }
 
   try {
@@ -35,22 +42,21 @@ export async function GET(request: Request) {
         devicetype: 'next_hue_app#instance1',
         generateclientkey: true,
       }),
-    })
+    });
 
-    const data = await response.json()
+    const data = await response.json();
 
     if (data[0].success) {
       return NextResponse.json({
         success: true,
         username: data[0].success.username,
         clientkey: data[0].success.clientkey,
-      })
+      });
     } else {
-      return NextResponse.json({ success: false })
+      return NextResponse.json({ success: false });
     }
   } catch (error) {
-    console.error('Erreur lors de la connexion au bridge:', error)
-    return NextResponse.json({ error: 'Erreur lors de la connexion au bridge' }, { status: 500 })
+    console.error('Erreur lors de la connexion au bridge:', error);
+    return NextResponse.json({ error: 'Erreur lors de la connexion au bridge' }, { status: 500 });
   }
 }
-
